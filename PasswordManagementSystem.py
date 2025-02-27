@@ -27,7 +27,7 @@ class PasswordManager:
         self.load_data()
         
         # 添加版本号显示
-        self.version_label = tk.Label(master, text=f"Version: {VersionCode}", anchor='w')
+        self.version_label = tk.Label(master, text=f"Disigned By MikuFans.Pro | Version: {VersionCode}", anchor='w')
         self.version_label.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
         
     def center_window(self, window):
