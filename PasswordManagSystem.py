@@ -203,13 +203,13 @@ class PasswordManager:
         
         # 获取选中的记录信息
         record_values = self.tree.item(selected[0], 'values')
+        name = record_values[1]  # 服务名称
         domain = record_values[2]  # 域名
         username = record_values[3]  # 账号
-        username = record_values[1]  # 服务
         
-        # 弹出确认对话框，显示域名和账号信息
+        # 弹出确认对话框，显示服务、域名和账号信息
         confirm_message = (
-            "您正在执行记录删除操作\n"
+            "您正在执行记录删除操作\n\n"
             f"服务：{name}\n"
             f"域名：{domain}\n"
             f"账号：{username}\n\n"
