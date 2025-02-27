@@ -2,11 +2,17 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+VersionCode = "0.0.2"
+
 class PasswordManager:
     def __init__(self, master):
         self.master = master
         master.title("密码管理系统")
         master.geometry("900x500")
+        master.resizable(False, False)  # 禁用最大化
+        
+        # 将窗口居中显示
+        self.center_window(master)
         
         # 数据库初始化
         self.conn = sqlite3.connect('passwords.db')
@@ -15,11 +21,26 @@ class PasswordManager:
         self.style = ttk.Style()
         self.style.configure("Treeview", rowheight=25)
         self.style.configure("TButton", padding=6, font=('微软雅黑', 10))
-		
+        
         # GUI组件
         self.create_widgets()
         self.load_data()
         
+        # 添加版本号显示
+        self.version_label = tk.Label(master, text=f"Version: {VersionCode}", anchor='w')
+        self.version_label.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+        
+    def center_window(self, window):
+        """将窗口居中显示"""
+        window.update_idletasks()  # 确保窗口尺寸和位置信息已更新
+        width = window.winfo_width()
+        height = window.winfo_height()
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        window.geometry(f"+{x}+{y}")
+
     def create_table(self):
         """创建数据库表"""
         c = self.conn.cursor()
@@ -38,14 +59,26 @@ class PasswordManager:
         search_frame = ttk.Frame(self.master)
         search_frame.pack(pady=10, padx=10, fill=tk.X)
         
+        # 左侧搜索组件
+        left_search = ttk.Frame(search_frame)
+        left_search.pack(side=tk.LEFT, expand=True)
+        
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=40)
+        search_entry = ttk.Entry(left_search, textvariable=self.search_var, width=40)
         search_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Button(search_frame, text="搜索", command=self.search).pack(side=tk.LEFT)
+        ttk.Button(left_search, text="搜索", command=self.search).pack(side=tk.LEFT)
+        
+        # 右侧操作按钮
+        right_buttons = ttk.Frame(search_frame)
+        right_buttons.pack(side=tk.RIGHT)
+        
+        ttk.Button(right_buttons, text="新增", command=self.add_dialog).pack(side=tk.LEFT, padx=5)
+        ttk.Button(right_buttons, text="编辑", command=self.edit_dialog).pack(side=tk.LEFT, padx=5)
+        ttk.Button(right_buttons, text="删除", command=self.delete).pack(side=tk.LEFT, padx=5)
         
         # 数据表格
         self.tree = ttk.Treeview(self.master, 
-                               columns=('ID','名称','域名','用户名','密码','备注'), 
+                               columns=('ID','服务','域名','账号','密码','备注'), 
                                show='headings', 
                                selectmode='browse')
         self.tree.pack(fill=tk.BOTH, expand=True, padx=10)
@@ -63,22 +96,15 @@ class PasswordManager:
         # 列配置
         columns = [
             ('ID', 60), 
-            ('名称', 150),
+            ('服务', 150),
             ('域名', 200),
-            ('用户名', 120),
+            ('账号', 120),
             ('密码', 150),
             ('备注', 120)
         ]
         for col, width in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor='w')
-        
-        # 操作按钮
-        btn_frame = ttk.Frame(self.master)
-        btn_frame.pack(pady=10)
-        ttk.Button(btn_frame, text="新增", command=self.add_dialog).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="编辑", command=self.edit_dialog).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="删除", command=self.delete).pack(side=tk.LEFT, padx=5)
 
     def load_data(self, search_query=None):
         """加载数据到表格"""
@@ -117,11 +143,13 @@ class PasswordManager:
         
     def input_dialog(self, title, callback, item=None):
         """通用输入对话框"""
-        dialog = tk.Toplevel()
+        dialog = tk.Toplevel(self.master)
         dialog.title(title)
+        dialog.resizable(False, False)  # 禁用最大化
+        dialog.transient(self.master)  # 设为子窗口
         dialog.grab_set()
         
-        fields = ['名称', '域名', '用户名', '密码', '备注']
+        fields = ['服务', '域名', '账号', '密码', '备注']
         entries = {}
         default_values = self.tree.item(item, 'values')[1:] if item else ['']*5
         
@@ -134,12 +162,15 @@ class PasswordManager:
             
         ttk.Button(dialog, text="保存", command=lambda: self.validate_and_save(dialog, entries, callback, item)
                   ).grid(row=5, columnspan=2, pady=10)
+        
+        # 对话框居中显示
+        self.center_window(dialog)
 
     def validate_and_save(self, dialog, entries, callback, item=None):
         """验证并保存数据"""
         data = {k: v.get().strip() for k, v in entries.items()}
-        if not all([data['名称'], data['域名'], data['用户名'], data['密码']]):
-            messagebox.showerror("错误", "名称、域名、用户名和密码为必填项")
+        if not all([data['服务'], data['域名'], data['账号'], data['密码']]):
+            messagebox.showerror("错误", "服务、域名、账号和密码为必填项")
             return
         callback(dialog, data, item)
         
@@ -147,7 +178,7 @@ class PasswordManager:
         """保存新记录"""
         c = self.conn.cursor()
         c.execute('INSERT INTO passwords (name, domain, username, password, notes) VALUES (?, ?, ?, ?, ?)',
-                 (data['名称'], data['域名'], data['用户名'], data['密码'], data['备注']))
+                 (data['服务'], data['域名'], data['账号'], data['密码'], data['备注']))
         self.conn.commit()
         dialog.destroy()
         self.load_data()
@@ -159,7 +190,7 @@ class PasswordManager:
         c.execute('''UPDATE passwords SET 
                     name=?, domain=?, username=?, password=?, notes=?
                     WHERE id=?''',
-                 (data['名称'], data['域名'], data['用户名'], data['密码'], data['备注'], record_id))
+                 (data['服务'], data['域名'], data['账号'], data['密码'], data['备注'], record_id))
         self.conn.commit()
         dialog.destroy()
         self.load_data()
@@ -169,8 +200,24 @@ class PasswordManager:
         selected = self.tree.selection()
         if not selected:
             return
-        if messagebox.askyesno("确认", "确定要删除这条记录吗？"):
-            record_id = self.tree.item(selected[0], 'values')[0]
+        
+        # 获取选中的记录信息
+        record_values = self.tree.item(selected[0], 'values')
+        domain = record_values[2]  # 域名
+        username = record_values[3]  # 账号
+        username = record_values[1]  # 服务
+        
+        # 弹出确认对话框，显示域名和账号信息
+        confirm_message = (
+            "您正在执行记录删除操作\n"
+            f"服务：{name}\n"
+            f"域名：{domain}\n"
+            f"账号：{username}\n\n"
+            "确认要删除此条记录吗？"
+        )
+        
+        if messagebox.askyesno("警告", confirm_message):
+            record_id = record_values[0]
             c = self.conn.cursor()
             c.execute("DELETE FROM passwords WHERE id=?", (record_id,))
             self.conn.commit()
@@ -191,7 +238,7 @@ class PasswordManager:
         # 创建上下文菜单
         menu = tk.Menu(self.master, tearoff=0)
         menu.add_command(label="复制域名", command=lambda: self.copy_field(item, 2))
-        menu.add_command(label="复制用户名", command=lambda: self.copy_field(item, 3))
+        menu.add_command(label="复制账号", command=lambda: self.copy_field(item, 3))
         menu.add_command(label="复制密码", command=lambda: self.copy_field(item, 4))
         menu.tk_popup(event.x_root, event.y_root)
 
